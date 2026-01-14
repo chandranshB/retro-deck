@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RetroStation Glass Player</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      color: #ffffff;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    }
+    #game-wrapper {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #070c1e 0%, #000000 100%);
+    }
+    #game {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Apple-style Floating Glass Capsule HUD */
+    #apple-hud {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 14px 6px 18px;
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 9999px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #apple-hud.hud-hidden {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-24px);
+      pointer-events: none;
+    }
+
+    .hud-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hud-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulseDot 2s ease-in-out infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+    .hud-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: #f8fafc;
+    }
+    .hud-fps {
+      font-size: 10px;
+      font-weight: 800;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+      padding: 2px 6px;
+      border-radius: 9999px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .hud-divider {
+      width: 1px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .hud-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .hud-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+      transform: scale(1.04);
+    }
+    .hud-btn-danger {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+    .hud-btn-danger:hover {
+      background: rgba(239, 68, 68, 0.3);
+      color: #ffffff;
+    }
+
+    /* Apple-style Loader Screen */
+    #loader-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, #0c152e 0%, #040711 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 50;
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .apple-spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .apple-pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #7dd3fc;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .loading-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      color: #ffffff;
+      text-align: center;
+    }
+    .loading-status {
+      font-size: 13px;
+      color: #94a3b8;
+      font-weight: 500;
+      text-align: center;
+    }
+    .apple-progress-track {
+      width: 220px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+    .apple-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 9999px;
+      transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <!-- Apple Floating HUD Capsule -->
+    <div id="apple-hud">
+      <div class="hud-title-group">
+        <span class="hud-dot"></span>
+        <span class="hud-title" id="hud-game-title">Tekken 3</span>
+        <span class="hud-fps" id="hud-fps-label">60 FPS</span>
+      </div>
+      <div class="hud-divider"></div>
+      <button class="hud-btn" id="btn-save" title="Quick Save State">
+        <span>💾</span>
+        <span>Save</span>
+      </button>
+      <button class="hud-btn" id="btn-load" title="Quick Load State">
+        <span>📂</span>
+        <span>Load</span>
+      </button>
+      <button class="hud-btn" id="btn-fs" title="Fullscreen">
+        <span>🖥️</span>
+      </button>
+      <button class="hud-btn hud-btn-danger" id="btn-exit" title="Exit to Dashboard (Esc)">
+        <span>✕</span>
+        <span>Exit</span>
+      </button>
+    </div>
+
+    <!-- Apple Loading Transition Overlay -->
+    <div id="loader-overlay">
+      <div class="apple-pill-badge" id="loader-sys-badge">
+        <span>●</span>
+        <span id="sys-label">PLAYSTATION</span>
+      </div>
+      <div class="loading-title" id="loading-title">Tekken 3</div>
+      <div class="apple-spinner"></div>
+      <div class="loading-status" id="status-text">Mounting virtual CD-ROM...</div>
+      <div class="apple-progress-track" id="pbar" style="display: none;">
+        <div class="apple-progress-bar" id="pbar-fill"></div>
+      </div>
+    </div>
+
+    <!-- Emulator Canvas Mount -->
+    <div id="game"></div>
+  </div>
+
+  <script>
+    const CACHE_NAME = 'retrostation-rom-cache-v1';
+
+    // Ultra-Fast Persistent ROM Fetcher with Cache API
+    async function fetchWithCache(url, onProgress) {
+      if ('caches' in window) {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match(url);
+          if (cached) {
+            onProgress?.(100);
+            return await cached.arrayBuffer();
+          }
+        } catch (e) {
+          console.warn('Cache Storage access error:', e);
+        }
+      }
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+      
+      const contentLength = res.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+      if (!res.body || total === 0) {
+        const buf = await res.arrayBuffer();
+        storeInCache(url, buf);
+        onProgress?.(100);
+        return buf;
+      }
+
+      const reader = res.body.getReader();
+      const chunks = [];
+      let received = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total > 0 && onProgress) {
+          onProgress((received / total) * 100);
+        }
+      }
+
+      const fullBuffer = new Uint8Array(received);
+      let offset = 0;
+      for (const chunk of chunks) {
+        fullBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const finalBuf = fullBuffer.buffer;
+      storeInCache(url, finalBuf);
+      return finalBuf;
+    }
+
+    async function storeInCache(url, buffer) {
+      if ('caches' in window) {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const response = new Response(buffer, {
+            headers: {
+              'Content-Type': 'application/octet-stream',
+              'Content-Length': String(buffer.byteLength),
+              'Cache-Control': 'public, max-age=31536000, immutable'
+            }
+          });
+          await cache.put(url, response);
+        } catch (e) {
+          // Safe fallback
+        }
+      }
+    }
+
+    async function initEmulator() {
+      const params = new URLSearchParams(window.location.search);
+      const core = params.get('core') || 'psx';
+      const title = params.get('title') || 'Tekken 3';
+      let romUrl = params.get('rom') || '/roms/tekken3.pbp';
+
+      const titleEl = document.getElementById('loading-title');
+      const hudTitleEl = document.getElementById('hud-game-title');
+      const sysEl = document.getElementById('sys-label');
+      const statusText = document.getElementById('status-text');
+      const pbar = document.getElementById('pbar');
+      const pbarFill = document.getElementById('pbar-fill');
+
+      titleEl.textContent = title;
+      hudTitleEl.textContent = title;
+      sysEl.textContent = (core === 'psx' ? 'PlayStation 1' : core).toUpperCase();
+
+      // Check session storage for user drag & drop custom ROMs
+      const customRomKey = params.get('sessionRomKey');
+      if (customRomKey && window.sessionStorage) {
+        const storedUrl = window.sessionStorage.getItem(customRomKey);
+        if (storedUrl) {
+          romUrl = storedUrl;
+        }
+      }
+
+      // If Tekken 3 (multi-chunk local storage on Cloudflare Pages)
+      if (romUrl === '/roms/tekken3.pbp' || romUrl.includes('tekken3')) {
+        pbar.style.display = 'block';
+        statusText.textContent = 'Streaming Tekken 3 (Part 1/2)...';
+        pbarFill.style.width = '10%';
+
+        try {
+          const part1 = await fetchWithCache('/roms/tekken3.pbp.part1', (pct) => {
+            pbarFill.style.width = (pct * 0.45).toFixed(0) + '%';
+          });
+
+          statusText.textContent = 'Streaming Tekken 3 (Part 2/2)...';
+          const part2 = await fetchWithCache('/roms/tekken3.pbp.part2', (pct) => {
+            pbarFill.style.width = (45 + pct * 0.45).toFixed(0) + '%';
+          });
+
+          statusText.textContent = 'Mounting 32-bit disc in local RAM...';
+          pbarFill.style.width = '100%';
+
+          const fullRomBlob = new Blob([part1, part2], { type: 'application/octet-stream' });
+          romUrl = URL.createObjectURL(fullRomBlob);
+          statusText.textContent = 'Launching WebAssembly PlayStation Engine...';
+        } catch (err) {
+          console.error('Failed to assemble Tekken 3 ROM chunks:', err);
+          statusText.textContent = 'Failed to load local ROM: ' + err.message;
+          return;
+        }
+      }
+
+      // Map cores to EmulatorJS standard names
+      let ejsCore = core;
+      if (core === 'genesis' || core === 'megadrive' || core === 'sega') ejsCore = 'segaMD';
+      if (core === 'psx' || core === 'ps1') ejsCore = 'psx';
+      if (core === 'snes') ejsCore = 'snes';
+      if (core === 'nes') ejsCore = 'nes';
+      if (core === 'gba') ejsCore = 'gba';
+      if (core === 'n64') ejsCore = 'n64';
+
+      window.EJS_player = '#game';
+      window.EJS_core = ejsCore;
+      window.EJS_gameName = title;
+      window.EJS_color = '#38bdf8'; // Apple Cyan / PS Blue
+      window.EJS_startOnLoaded = true;
+      window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+      window.EJS_gameUrl = romUrl;
+
+      // Provide authentic PS1 BIOS locally from our domain
+      if (ejsCore === 'psx') {
+        window.EJS_biosUrl = '/bios/psx.7z';
+      }
+
+      // Hide loading screen smoothly once emulator is ready
+      window.EJS_onGameStart = function() {
+        const loader = document.getElementById('loader-overlay');
+        if (loader) {
+          loader.style.opacity = '0';
+          loader.style.transform = 'scale(1.04)';
+          setTimeout(() => loader.remove(), 600);
+        }
+      };
+
+      // Fallback: hide overlay after max 8s
+      setTimeout(() => {
+        const loader = document.getElementById('loader-overlay');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => loader.remove(), 600);
+        }
+      }, 8000);
+
+      // Inject EmulatorJS loader script
+      const script = document.createElement('script');
+      script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+      script.crossOrigin = 'anonymous';
+      document.body.appendChild(script);
+
+      // Setup Apple HUD Interactions
+      setupHud();
+    }
+
+    function setupHud() {
+      const hud = document.getElementById('apple-hud');
+      const btnExit = document.getElementById('btn-exit');
+      const btnFs = document.getElementById('btn-fs');
+      const btnSave = document.getElementById('btn-save');
+      const btnLoad = document.getElementById('btn-load');
+
+      let hideTimer = null;
+      const resetHideTimer = () => {
+        hud.classList.remove('hud-hidden');
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+          hud.classList.add('hud-hidden');
+        }, 2800);
+      };
+
+      window.addEventListener('mousemove', resetHideTimer);
+      window.addEventListener('touchstart', resetHideTimer);
+      resetHideTimer();
+
+      btnExit.addEventListener('click', () => {
+        window.parent.postMessage({ type: 'PS_EXIT_GAME' }, '*');
+      });
+
+      btnFs.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
+
+      btnSave.addEventListener('click', () => {
+        if (window.EJS_emulator && typeof window.EJS_emulator.saveState === 'function') {
+          window.EJS_emulator.saveState();
+        }
+      });
+
+      btnLoad.addEventListener('click', () => {
+        if (window.EJS_emulator && typeof window.EJS_emulator.loadState === 'function') {
+          window.EJS_emulator.loadState();
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          window.parent.postMessage({ type: 'PS_EXIT_GAME' }, '*');
+        }
+      });
+    }
+
+    initEmulator();
+  </script>
+</body>
+</html>
