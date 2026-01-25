@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { Plus, Heart, ChevronLeft, ChevronRight, LayoutGrid, Tv } from 'lucide-react'
-import type { Game, CategoryFilter, SystemType } from '../types/game'
+import { Plus, ChevronLeft, ChevronRight, LayoutGrid, Tv } from 'lucide-react'
+import type { Game, CategoryFilter } from '../types/game'
 import { sound } from '../services/sound'
 
 interface PS5GameRibbonProps {
@@ -32,278 +32,167 @@ export const PS5GameRibbon: React.FC<PS5GameRibbonProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const [tiltMap, setTiltMap] = useState<{ [id: string]: { x: number; y: number; active: boolean } }>({})
+  // hoveredId is purely visual — never triggers scroll or parent state change
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
 
-  // Auto-center selected card smoothly
+  // Scroll selected card into view ONLY when selectedGameId changes
+  // (not on hover — that's what caused the jitter)
   useEffect(() => {
-    if (selectedGameId && itemRefs.current.has(selectedGameId)) {
-      const el = itemRefs.current.get(selectedGameId)
-      if (el && containerRef.current) {
-        el.scrollIntoView({
-          behavior: 'smooth',
-          inline: 'center',
-          block: 'nearest',
-        })
-      }
+    const el = selectedGameId ? itemRefs.current.get(selectedGameId) : null
+    if (el) {
+      // Use requestAnimationFrame to let React finish painting first
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      })
     }
   }, [selectedGameId])
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, id: string) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-    const rotX = ((y - 50) / 50) * -12
-    const rotY = ((x - 50) / 50) * 12
-    setTiltMap((prev) => ({
-      ...prev,
-      [id]: { x: rotX, y: rotY, active: true },
-    }))
+  const scrollTrack = (offset: number) => {
+    containerRef.current?.scrollBy({ left: offset, behavior: 'smooth' })
   }
 
-  const handleMouseLeave = (id: string) => {
-    setTiltMap((prev) => ({
-      ...prev,
-      [id]: { x: 0, y: 0, active: false },
-    }))
-  }
-
-  const scrollBy = (offset: number) => {
-    if (containerRef.current) {
-      containerRef.current.scrollBy({ left: offset, behavior: 'smooth' })
-    }
-  }
-
-  const getSystemBadge = (sys: SystemType | string) => {
-    switch (sys) {
-      case 'psx':
-        return { label: 'PS1', bg: 'bg-[#0070d1]' }
-      case 'gba':
-        return { label: 'GBA', bg: 'bg-[#7c3aed]' }
-      case 'snes':
-        return { label: 'SNES', bg: 'bg-[#4f46e5]' }
-      case 'nes':
-        return { label: 'NES', bg: 'bg-[#dc2626]' }
-      case 'genesis':
-        return { label: 'SEGA', bg: 'bg-[#d97706]' }
-      default:
-        return { label: 'ROM', bg: 'bg-[#059669]' }
-    }
-  }
-
-  const categoryPills: { id: CategoryFilter; label: string }[] = [
-    { id: 'all', label: 'All Titles' },
-    { id: 'psx', label: 'PlayStation' },
-    { id: 'nintendo', label: 'Nintendo' },
-    { id: 'sega', label: 'Sega' },
-    { id: 'favorites', label: `Favorites (${favoritesCount})` },
-    { id: 'custom', label: `My ROMs (${customGamesCount})` },
+  const categories: { id: CategoryFilter; label: string }[] = [
+    { id: 'all',       label: 'All' },
+    { id: 'psx',       label: 'PlayStation' },
+    { id: 'nintendo',  label: 'Nintendo' },
+    { id: 'sega',      label: 'Sega' },
+    { id: 'favorites', label: favoritesCount > 0 ? `Favorites  ${favoritesCount}` : 'Favorites' },
+    { id: 'custom',    label: customGamesCount > 0 ? `My ROMs  ${customGamesCount}` : 'My ROMs' },
   ]
 
   return (
-    <div className="relative z-30 w-full px-6 sm:px-10 pt-2 pb-4 select-none">
-      {/* Platform Category Selector Bar + View Mode Switcher */}
-      <div className="flex items-center justify-between mb-3 gap-2 overflow-x-auto scrollbar-none pb-1">
-        <div className="p-1 rounded-full apple-glass flex items-center gap-1">
-          {categoryPills.map((cat) => {
-            const isActive = currentCategory === cat.id
+    <div className="w-full px-5 sm:px-8 lg:px-12 pt-1 pb-2 select-none">
+
+      {/* ── Filter + controls row ─────────────────────────── */}
+      <div className="flex items-center gap-3 overflow-x-auto scrollbar-none pb-1">
+        {/* Category pills */}
+        <div className="flex items-center gap-0.5 p-1 rounded-full glass flex-shrink-0">
+          {categories.map(({ id, label }) => {
+            const active = currentCategory === id
             return (
               <button
-                key={cat.id}
-                onClick={() => {
-                  if (currentCategory !== cat.id) {
-                    sound.playCategorySwitch()
-                    onSelectCategory(cat.id)
-                  }
-                }}
-                onMouseEnter={() => sound.playHover()}
-                className={`relative px-4 py-1.5 rounded-full text-xs font-bold tracking-tight transition-all duration-300 whitespace-nowrap ${
-                  isActive
-                    ? 'text-white bg-white/20 shadow-md shadow-black/40 border border-white/25'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                key={id}
+                onClick={() => { if (!active) { sound.playCategorySwitch(); onSelectCategory(id) } }}
+                className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all duration-200 ${
+                  active
+                    ? 'bg-white/14 text-white border border-white/15'
+                    : 'text-[#5a6478] hover:text-[#9aa3b4] border border-transparent'
                 }`}
               >
-                {cat.label}
+                {label}
               </button>
             )
           })}
         </div>
 
-        {/* View Mode Toggle: TV Ribbon vs Full Grid */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
           <button
-            onClick={() => {
-              sound.playToggle()
-              onToggleViewMode()
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full apple-glass-pill text-xs font-bold text-slate-200 hover:text-white transition-all hover:scale-105"
-            title="Switch View Mode (Press V)"
+            onClick={() => { sound.playToggle(); onToggleViewMode() }}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-full pill text-[11px] font-semibold text-[#5a6478] hover:text-[#9aa3b4]"
+            title="Switch view  V"
           >
-            {viewMode === 'tv' ? (
-              <>
-                <LayoutGrid className="w-3.5 h-3.5 text-blue-400" />
-                <span>Grid View</span>
-              </>
-            ) : (
-              <>
-                <Tv className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Ribbon View</span>
-              </>
-            )}
+            {viewMode === 'tv'
+              ? <><LayoutGrid className="w-3.5 h-3.5" strokeWidth={2.4} /><span className="hidden sm:inline">Grid</span></>
+              : <><Tv         className="w-3.5 h-3.5" strokeWidth={2.4} /><span className="hidden sm:inline">Showcase</span></>
+            }
           </button>
-
           <button
-            onClick={() => {
-              sound.playSelect()
-              onOpenUpload()
-            }}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all hover:scale-105 shadow-sm"
+            onClick={() => { sound.playSelect(); onOpenUpload() }}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-full pill text-[11px] font-semibold text-[#5a6478] hover:text-[#9aa3b4]"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Upload ROM</span>
+            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+            <span className="hidden sm:inline">Upload ROM</span>
           </button>
         </div>
       </div>
 
-      {/* PS5 Horizontal Game Ribbon (Visible in 'tv' view mode) */}
+      {/* ── Ribbon ───────────────────────────────────────── */}
       {viewMode === 'tv' && (
-        <div className="relative w-full">
-          {/* Scroll Nav Buttons */}
+        <div className="relative mt-3">
+          {/* Scroll buttons */}
           <button
-            onClick={() => {
-              sound.playHover()
-              scrollBy(-320)
-            }}
-            className="absolute -left-3 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 backdrop-blur-md shadow-2xl hover:scale-110 transition-all hidden sm:flex items-center justify-center"
-            title="Scroll Left"
+            onClick={() => scrollTrack(-300)}
+            className="absolute -left-2 top-[calc(50%-8px)] z-20 w-8 h-8 hidden sm:grid place-items-center rounded-full bg-black/70 border border-white/10 text-white hover:bg-black/90 transition-colors"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
           </button>
           <button
-            onClick={() => {
-              sound.playHover()
-              scrollBy(320)
-            }}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 backdrop-blur-md shadow-2xl hover:scale-110 transition-all hidden sm:flex items-center justify-center"
-            title="Scroll Right"
+            onClick={() => scrollTrack(300)}
+            className="absolute -right-2 top-[calc(50%-8px)] z-20 w-8 h-8 hidden sm:grid place-items-center rounded-full bg-black/70 border border-white/10 text-white hover:bg-black/90 transition-colors"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
           </button>
 
+          {/* Track */}
           <div
             ref={containerRef}
-            className="flex items-center gap-4 sm:gap-5 overflow-x-auto py-3 scrollbar-none snap-x perspective-[1200px]"
-            style={{ scrollPaddingLeft: '1rem', scrollPaddingRight: '1rem' }}
+            className="flex gap-4 overflow-x-auto scrollbar-none py-5 px-1"
           >
-            {games.map((game) => {
+            {games.map(game => {
               const isSelected = game.id === selectedGameId
-              const isFav = favorites.includes(game.id)
-              const badge = getSystemBadge(game.system)
-              const tilt = tiltMap[game.id] || { x: 0, y: 0, active: false }
+              const isHovered = hoveredId === game.id
+              const glow = game.themeColor || '#2e8fff'
+              // Use a fixed size — clamp avoids reflow on viewport resize mid-hover
+              const SZ = 'clamp(100px, 10vw, 128px)'
 
               return (
                 <div
                   key={game.id}
-                  ref={(el) => {
-                    if (el) itemRefs.current.set(game.id, el)
-                    else itemRefs.current.delete(game.id)
-                  }}
-                  onClick={() => {
-                    sound.playHover()
-                    onSelectGame(game)
-                  }}
-                  onMouseEnter={() => {
-                    if (!isSelected) {
-                      sound.playHover()
-                      onSelectGame(game)
-                    }
-                  }}
-                  onMouseMove={(e) => handleMouseMove(e, game.id)}
-                  onMouseLeave={() => handleMouseLeave(game.id)}
-                  className="relative flex-shrink-0 cursor-pointer snap-center group"
+                  ref={el => { if (el) itemRefs.current.set(game.id, el); else itemRefs.current.delete(game.id) }}
+                  // Click → commit selection (this triggers scrollIntoView)
+                  onClick={() => { sound.playHover(); onSelectGame(game) }}
+                  // Hover → local visual state only, zero parent setState
+                  onMouseEnter={() => setHoveredId(game.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  className="ribbon-item"
+                  style={{ width: SZ }}
                 >
-                  {/* PS5 / Apple TV Signature Card Container */}
+                  {/* Spotlight bloom — position:absolute, layout-inert */}
                   <div
-                    className={`relative w-28 sm:w-32 md:w-36 aspect-[1/1] rounded-2xl overflow-hidden transition-all duration-300 ${
-                      isSelected
-                        ? 'ps5-card-active scale-110 -translate-y-2 z-20 ring-2 ring-white'
-                        : 'border border-white/10 hover:border-white/30 bg-slate-900/60 opacity-75 hover:opacity-100 hover:scale-102'
-                    }`}
-                    style={{
-                      transform: tilt.active
-                        ? `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1.12)`
-                        : isSelected
-                        ? 'scale(1.10) translateY(-6px)'
-                        : 'scale(0.96)',
-                      transformStyle: 'preserve-3d',
-                      transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease',
-                    }}
+                    className={`spotlight ${isSelected ? 'on' : ''}`}
+                    style={{ backgroundColor: glow }}
+                  />
+
+                  {/* Card — all transforms live here, not on the wrapper */}
+                  <div
+                    className={`card ${isSelected ? 'is-selected' : ''}`}
+                    style={{ width: SZ, height: SZ }}
                   >
-                    {/* Game Cover Art */}
-                    <img
-                      src={game.coverUrl}
-                      alt={game.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      loading="lazy"
-                    />
+                    <img src={game.coverUrl} alt={game.title} loading="lazy" />
+                    <div className="card-fade" />
 
-                    {/* Specular Glare */}
-                    <div
-                      className="absolute inset-0 pointer-events-none transition-opacity duration-200"
-                      style={{
-                        background: tilt.active
-                          ? `radial-gradient(circle at ${50 + tilt.y * 3}% ${50 - tilt.x * 3}%, rgba(255,255,255,0.3) 0%, transparent 65%)`
-                          : 'transparent',
-                        opacity: tilt.active ? 1 : 0,
-                      }}
-                    />
-
-                    {/* System Tag */}
-                    <span
-                      className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase text-white shadow-md backdrop-blur-md ${badge.bg}`}
-                    >
-                      {badge.label}
-                    </span>
-
-                    {/* Favorite Star */}
-                    {isFav && (
-                      <span className="absolute top-2 right-2 p-1 rounded-full bg-black/60 backdrop-blur-md">
-                        <Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
-                      </span>
+                    {/* Favorite dot */}
+                    {favorites.includes(game.id) && (
+                      <div className="absolute top-1.5 right-1.5 w-4 h-4 grid place-items-center rounded-full bg-black/50">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                      </div>
                     )}
-
-                    {/* Bottom Selected Indicator Gradient */}
-                    <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
                   </div>
 
-                  {/* Title Preview under icon */}
-                  <div className="mt-2 text-center w-28 sm:w-32 md:w-36 px-1">
-                    <span
-                      className={`text-[11px] font-bold block truncate transition-colors ${
-                        isSelected ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
-                      }`}
-                    >
-                      {game.title}
-                    </span>
-                  </div>
+                  {/* Label — transitions handled by CSS .card transition chain */}
+                  <p className={`mt-2 text-[11px] font-medium text-center truncate px-0.5 transition-colors duration-250 ${
+                    isSelected || isHovered ? 'text-white' : 'text-[#3d4557]'
+                  }`}>
+                    {game.title}
+                  </p>
                 </div>
               )
             })}
 
-            {/* Custom ROM Upload Card */}
+            {/* Add ROM slot */}
             <div
-              onClick={() => {
-                sound.playSelect()
-                onOpenUpload()
-              }}
-              onMouseEnter={() => sound.playHover()}
-              className="relative flex-shrink-0 w-28 sm:w-32 md:w-36 aspect-[1/1] rounded-2xl apple-glass flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all duration-300 group snap-center hover:scale-105 hover:border-emerald-400/50 hover:shadow-[0_10px_30px_rgba(16,185,129,0.25)]"
+              onClick={() => { sound.playSelect(); onOpenUpload() }}
+              onMouseEnter={() => setHoveredId('__add__')}
+              onMouseLeave={() => setHoveredId(null)}
+              className="ribbon-item flex-shrink-0"
+              style={{ width: 'clamp(100px, 10vw, 128px)' }}
             >
-              <div className="w-8 h-8 rounded-full bg-white/10 group-hover:bg-emerald-500/20 flex items-center justify-center text-slate-300 group-hover:text-emerald-400 transition-all">
-                <Plus className="w-4 h-4" />
+              <div
+                className="card glass flex items-center justify-center"
+                style={{ width: 'clamp(100px, 10vw, 128px)', height: 'clamp(100px, 10vw, 128px)' }}
+              >
+                <Plus className={`w-5 h-5 transition-colors duration-200 ${hoveredId === '__add__' ? 'text-white' : 'text-[#3d4557]'}`} strokeWidth={1.8} />
               </div>
-              <span className="text-[10px] font-bold text-slate-300 group-hover:text-emerald-300">
-                Add ROM
-              </span>
             </div>
           </div>
         </div>

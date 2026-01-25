@@ -1,8 +1,7 @@
 import React, { useState } from 'react'
-import { Play, Heart, Info, Star, ArrowUpDown } from 'lucide-react'
-import type { Game, SystemType } from '../types/game'
+import { Play, Heart, Info } from 'lucide-react'
+import type { Game } from '../types/game'
 import { sound } from '../services/sound'
-import { CrossGlyph } from './PlayStationGlyphs'
 
 interface GameGridViewProps {
   games: Game[]
@@ -13,8 +12,6 @@ interface GameGridViewProps {
   onSelectGame: (game: Game) => void
 }
 
-type SortOption = 'rating' | 'year-desc' | 'year-asc' | 'title'
-
 export const GameGridView: React.FC<GameGridViewProps> = ({
   games,
   favorites,
@@ -23,201 +20,96 @@ export const GameGridView: React.FC<GameGridViewProps> = ({
   onOpenDetails,
   onSelectGame,
 }) => {
-  const [sortBy, setSortBy] = useState<SortOption>('rating')
-  const [hoveredGameId, setHoveredGameId] = useState<string | null>(null)
-
-  const sortedGames = [...games].sort((a, b) => {
-    switch (sortBy) {
-      case 'rating':
-        return b.rating - a.rating
-      case 'year-desc':
-        return Number(b.year) - Number(a.year)
-      case 'year-asc':
-        return Number(a.year) - Number(b.year)
-      case 'title':
-        return a.title.localeCompare(b.title)
-      default:
-        return 0
-    }
-  })
-
-  const getSystemBadge = (sys: SystemType | string) => {
-    switch (sys) {
-      case 'psx':
-        return { label: 'PS1', bg: 'bg-blue-600' }
-      case 'gba':
-        return { label: 'GBA', bg: 'bg-purple-600' }
-      case 'snes':
-        return { label: 'SNES', bg: 'bg-indigo-600' }
-      case 'nes':
-        return { label: 'NES', bg: 'bg-red-600' }
-      case 'genesis':
-        return { label: 'SEGA', bg: 'bg-amber-600' }
-      default:
-        return { label: 'ROM', bg: 'bg-emerald-600' }
-    }
-  }
+  const [hovered, setHovered] = useState<string | null>(null)
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-6 py-6 animate-in fade-in duration-300">
-      {/* Grid Subheader Toolbar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-            <span>PlayStation & Retro Collection</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono font-medium">
-              {games.length} titles
-            </span>
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Browse high-definition retro titles optimized for 60 FPS WebAssembly emulation
-          </p>
-        </div>
+    <div className="flex-1 overflow-y-auto no-scroll px-6 sm:px-10 lg:px-14 pt-24 pb-8">
+      <p className="text-[11px] font-medium text-white/25 mb-5 tracking-wide uppercase">
+        {games.length} titles
+      </p>
 
-        {/* Sorting Dropdown */}
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-400">Sort:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => {
-              sound.playSelect()
-              setSortBy(e.target.value as SortOption)
-            }}
-            className="apple-glass-pill px-3 py-1.5 text-xs font-semibold text-white rounded-xl focus:outline-none cursor-pointer"
-          >
-            <option value="rating" className="bg-[#090d1f] text-white">
-              Highest Rated ★
-            </option>
-            <option value="year-desc" className="bg-[#090d1f] text-white">
-              Release Year (Newest)
-            </option>
-            <option value="year-asc" className="bg-[#090d1f] text-white">
-              Release Year (Classic)
-            </option>
-            <option value="title" className="bg-[#090d1f] text-white">
-              Title (A - Z)
-            </option>
-          </select>
-        </div>
-      </div>
-
-      {/* Responsive Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
-        {sortedGames.map((game) => {
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-3 sm:gap-4">
+        {games.map(game => {
           const isFav = favorites.includes(game.id)
-          const badge = getSystemBadge(game.system)
-          const isHovered = hoveredGameId === game.id
+          const isHov = hovered === game.id
 
           return (
             <div
               key={game.id}
-              onMouseEnter={() => {
-                sound.playHover()
-                setHoveredGameId(game.id)
-              }}
-              onMouseLeave={() => setHoveredGameId(null)}
-              onClick={() => {
-                sound.playHover()
-                onSelectGame(game)
-              }}
-              className="group relative flex flex-col cursor-pointer"
+              onMouseEnter={() => setHovered(game.id)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => { sound.playHover(); onSelectGame(game) }}
+              className="relative cursor-pointer"
             >
-              {/* Poster Card Container with Apple Parallax Feel */}
               <div
-                className={`relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-900 border transition-all duration-300 ${
-                  isHovered
-                    ? 'scale-[1.05] -translate-y-2 border-white/40 shadow-[0_20px_40px_rgba(0,112,209,0.35)] ring-2 ring-white/60 z-20'
-                    : 'border-white/10 hover:border-white/25 shadow-lg'
-                }`}
+                className="relative aspect-[3/4] rounded-xl overflow-hidden bg-[#0c0e16]"
+                style={{
+                  border: `1px solid ${isHov ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.05)'}`,
+                  opacity: isHov ? 1 : 0.5,
+                  transform: isHov ? 'translateY(-3px)' : 'none',
+                  boxShadow: isHov
+                    ? '0 0 0 1px rgba(255,255,255,0.3), 0 10px 28px rgba(0,0,0,0.4)'
+                    : '0 4px 12px rgba(0,0,0,0.3)',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.25s ease',
+                }}
               >
                 <img
                   src={game.coverUrl}
                   alt={game.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="w-full h-full object-cover"
                   loading="lazy"
                 />
 
-                {/* System Badge */}
-                <span
-                  className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase text-white shadow-md backdrop-blur-md ${badge.bg}`}
-                >
-                  {badge.label}
-                </span>
-
-                {/* Favorite Heart */}
                 {isFav && (
-                  <span className="absolute top-2.5 right-2.5 p-1 rounded-full bg-black/60 backdrop-blur-md shadow-md">
-                    <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
-                  </span>
+                  <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 grid place-items-center rounded-full bg-black/50">
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                  </div>
                 )}
 
-                {/* Star Rating Badge */}
-                <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-bold text-amber-300">
-                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                  <span>{game.rating.toFixed(1)}</span>
-                </span>
-
-                {/* Hover Quick Action Overlay */}
+                {/* Hover overlay */}
                 <div
-                  className={`absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2.5 transition-opacity duration-200 ${
-                    isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                  }`}
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+                  style={{
+                    background: 'rgba(0,0,0,0.5)',
+                    backdropFilter: 'blur(2px)',
+                    opacity: isHov ? 1 : 0,
+                    pointerEvents: isHov ? 'auto' : 'none',
+                    transition: 'opacity 0.15s ease',
+                  }}
                 >
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      sound.playGameStart()
-                      onPlayGame(game)
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-white text-black hover:bg-slate-100 font-bold text-xs tracking-tight shadow-xl hover:scale-105 transition-all"
+                    onClick={e => { e.stopPropagation(); sound.playGameStart(); onPlayGame(game) }}
+                    className="flex items-center gap-1.5 h-8 pl-3.5 pr-4 rounded-full bg-white text-[#08090e] font-semibold text-[11px] hover:bg-white/90 active:scale-95 transition-all"
                   >
-                    <CrossGlyph size={16} className="bg-black/10 text-black border-transparent" />
-                    <Play className="w-3.5 h-3.5 fill-black" />
-                    <span>PLAY</span>
+                    <Play className="w-3 h-3 fill-[#08090e]" strokeWidth={0} />
+                    Play
                   </button>
-
-                  <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        sound.playSelect()
-                        onToggleFavorite(game)
-                      }}
-                      className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all hover:scale-110"
-                      title={isFav ? 'Remove Favorite' : 'Add Favorite'}
+                      onClick={e => { e.stopPropagation(); sound.playSelect(); onToggleFavorite(game) }}
+                      className="w-7 h-7 grid place-items-center rounded-full bg-white/10 hover:bg-white/18 transition-colors"
                     >
                       <Heart
-                        className={`w-3.5 h-3.5 ${
-                          isFav ? 'fill-rose-400 text-rose-400' : 'text-white'
-                        }`}
+                        className={`w-3 h-3 ${isFav ? 'fill-rose-400 text-rose-400' : 'text-white/70'}`}
+                        strokeWidth={0}
                       />
                     </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        sound.playSelect()
-                        onOpenDetails(game)
-                      }}
-                      className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all hover:scale-110"
-                      title="View Details"
+                      onClick={e => { e.stopPropagation(); sound.playSelect(); onOpenDetails(game) }}
+                      className="w-7 h-7 grid place-items-center rounded-full bg-white/10 hover:bg-white/18 transition-colors"
                     >
-                      <Info className="w-3.5 h-3.5 text-white" />
+                      <Info className="w-3 h-3 text-white/70" strokeWidth={2.3} />
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Title & Metadata */}
-              <div className="mt-2.5 px-1">
-                <h3 className="text-xs md:text-sm font-bold text-white truncate group-hover:text-blue-300 transition-colors">
-                  {game.title}
-                </h3>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 mt-0.5">
-                  <span className="truncate">{game.genre}</span>
-                  <span className="font-mono text-slate-500">{game.year}</span>
-                </div>
-              </div>
+              <p
+                className="mt-1.5 text-[10px] font-medium truncate transition-colors duration-200"
+                style={{ color: isHov ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.28)' }}
+              >
+                {game.title}
+              </p>
             </div>
           )
         })}
