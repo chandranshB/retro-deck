@@ -1,72 +1,57 @@
-# 🎮 RetroDeck — Universal Retro Gaming Console OS
+# RetroStation
 
-A client-side retro gaming web console and living-room gaming OS inspired by **PlayStation 5 Dashboard** and **Apple TV 4K (tvOS)**. Runs entirely inside your browser via **WebAssembly (WASM)** with **zero cloud streaming lag**, full **gamepad & DualSense support**, and multi-system retro emulation (**PS1, GBA, SNES, NES, Sega Genesis**).
-
-![RetroDeck Preview](https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80)
+A browser-based retro gaming interface. Runs entirely client-side via WebAssembly — no server, no streaming, no lag. Supports PS1, GBA, SNES, NES, and Sega Genesis.
 
 ---
 
-## ✨ Features
+## Features
 
-### 1. Next-Gen Console Dashboard & Apple TV Interface
-* **PS5 Game Ribbon**: Horizontal quick-access shelf of active game icons with active focus glow and smooth snap scrolling.
-* **Apple TV 3D Parallax Tilt**: Specular glints and dynamic 3D tilt tracking cursor and gamepad thumbstick movements.
-* **Full-Bleed Cinematic Stage**: Crossfading 4K wallpapers with game-specific ambient lighting.
-* **Dual View Engine**: Seamlessly switch between **Showcase Mode** (TV console experience) and **Grid Mode** (Apple TV curated library).
-* **Trinitron CRT Retro Shader**: Hardware-accelerated scanline and phosphor glow shader toggleable in real time (`Press C`).
-* **PS5 Activity Cards**: Instant launch, live trophy progress, virtual memory card slots, display shaders, and controller diagnostics.
-* **Universal Spotlight Search**: Press `/` or `Cmd/Ctrl + K` for instant fuzzy search across titles, systems, genres, and developers.
+- Full-bleed cinematic game browser with keyboard and gamepad navigation
+- Multi-system emulation via WebAssembly (EmulatorJS)
+- DualSense, DualShock, Xbox, and standard gamepad support via the Gamepad API
+- Custom ROM importer — drag in any `.gba`, `.nes`, `.smc`, `.md`, `.bin`, or `.zip`
+- Virtual PS1 memory card with save state management
+- Procedural audio engine — all UI sounds synthesized via Web Audio API, zero audio files
+- CRT scanline shader toggle
+- Offline-capable, all storage via IndexedDB
 
-### 2. Full Gamepad, DualSense & Keyboard Support
-* **Gamepad API Integration**: Plug in your **DualSense, DualShock 4, Xbox Controller**, or standard USB/Bluetooth gamepad:
-  * **D-Pad / Left Stick**: Navigate game cards & tabs
-  * **Cross [✕] / A**: Select & Launch Game
-  * **Circle [◯] / B**: Back & Close Modal
-  * **Triangle [△] / Y**: Toggle Favorite
-  * **Square [▢] / X**: View Info & Controls
-  * **L1 / R1**: Switch category tabs
-* **Interactive DualSense Visualizer**: Live hardware button polling and latency tester.
-* **Keyboard Shortcuts**: Complete desktop navigation (`Enter`, `Esc`, `F`, `I`, `Arrows`, `V`, `C`, `/`, `1-6`).
+## Controls
 
-### 3. Procedural Audio Engine
-* **Acoustic Haptics**: Procedurally synthesized console clicks, selection chords, fluid category whooshes, and cinematic launch rumbles via the Web Audio API — **zero external audio file dependencies**.
+| Action | Keyboard | Gamepad |
+|--------|----------|---------|
+| Play | Enter | Cross |
+| Back | Escape | Circle |
+| Save | F | Triangle |
+| Details | I | Square |
+| Browse | Arrow keys | D-Pad / Left stick |
+| Search | / or Ctrl+K | — |
+| Switch view | V | — |
+| Switch category | 1–6 | L1 / R1 |
 
-### 4. Virtual Memory Card & Offline Save States
-* **15-Block PS1 Save System**: Track and manage browser-local save data with one-click `.sav` file backup/export.
-* **IndexedDB Custom ROM Importer**: Drag & drop any `.gba`, `.nes`, `.smc`, `.sfc`, `.md`, `.bin`, `.iso`, or `.zip` file for permanent offline browser storage.
+## Stack
 
----
+- React 19, TypeScript, Vite 8
+- Tailwind CSS v4
+- Lucide icons
+- Web Audio API (procedural sound)
+- IndexedDB (custom ROM and save storage)
+- EmulatorJS + WebAssembly (emulation core)
+- Cloudflare Pages (deployment target)
 
-## 🛠️ Tech Stack
-
-* **Frontend**: React 19 + TypeScript + Vite 8
-* **Styling**: Tailwind CSS v4 + Lucide Icons
-* **Audio**: Native Web Audio API procedural synthesis
-* **Storage**: IndexedDB (via localforage-style native wrapper)
-* **Emulation Core**: WebAssembly + EmulatorJS + HTML5 Canvas
-* **Optimization**: Static Site Generation (SSG) pre-rendering pipeline
-
----
-
-## 🚀 Getting Started
+## Getting started
 
 ```bash
-# Clone the repository
 git clone https://github.com/chandranshB/retro-deck.git
 cd retro-deck
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
+```
 
-# Build for production with SSG pre-rendering
+```bash
+# Production build with SSG pre-rendering
 npm run build
 ```
 
----
+## License
 
-## 📄 License
-
-MIT License. Crafted for retro gaming enthusiasts.
+MIT
