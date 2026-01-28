@@ -1,9 +1,7 @@
-import React, { useRef, useEffect, useState } from 'react'
-import { Play, Heart, Info, Plus, ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-react'
+import React, { useRef, useEffect, useState, useCallback } from 'react'
+import { Play, Heart, Info, Plus, ChevronLeft, ChevronRight, LayoutGrid, Trash2 } from 'lucide-react'
 import type { Game, CategoryFilter } from '../types/game'
 import { sound } from '../services/sound'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PS5GameStageProps {
   game: Game | null
@@ -13,7 +11,6 @@ interface PS5GameStageProps {
   onOpenDetails: (game: Game) => void
   onOpenMemoryCard: () => void
   onDeleteCustom?: (id: string) => void
-  // ribbon props — unified into one component
   games: Game[]
   selectedGameId: string | null
   onSelectGame: (game: Game) => void
@@ -27,7 +24,8 @@ interface PS5GameStageProps {
   customGamesCount: number
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const TILE = 110   // px — single source of truth for tile dimensions
+const GAP  = 10    // px — gap between tiles
 
 export const PS5GameStage: React.FC<PS5GameStageProps> = ({
   game,
@@ -50,21 +48,40 @@ export const PS5GameStage: React.FC<PS5GameStageProps> = ({
 }) => {
   const trackRef = useRef<HTMLDivElement>(null)
   const tileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [hoveredId,      setHoveredId]      = useState<string | null>(null)
+  const [canScrollLeft,  setCanScrollLeft]  = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
 
-  // Scroll selected tile into view — only when selectedGameId changes, never on hover
+  const updateArrows = useCallback(() => {
+    const el = trackRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 2)
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2)
+  }, [])
+
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    // small delay so DOM is painted before measuring
+    const t = setTimeout(updateArrows, 80)
+    el.addEventListener('scroll', updateArrows, { passive: true })
+    const ro = new ResizeObserver(updateArrows)
+    ro.observe(el)
+    return () => { clearTimeout(t); el.removeEventListener('scroll', updateArrows); ro.disconnect() }
+  }, [updateArrows, games])
+
   useEffect(() => {
     const el = selectedGameId ? tileRefs.current.get(selectedGameId) : null
     if (!el) return
-    requestAnimationFrame(() => {
+    requestAnimationFrame(() =>
       el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-    })
+    )
   }, [selectedGameId])
 
   const scrollTrack = (d: number) =>
     trackRef.current?.scrollBy({ left: d, behavior: 'smooth' })
 
-  const categories: { id: CategoryFilter; label: string }[] = [
+  const cats: { id: CategoryFilter; label: string }[] = [
     { id: 'all',       label: 'All' },
     { id: 'psx',       label: 'PlayStation' },
     { id: 'nintendo',  label: 'Nintendo' },
@@ -73,228 +90,381 @@ export const PS5GameStage: React.FC<PS5GameStageProps> = ({
     { id: 'custom',    label: customGamesCount > 0 ? `My ROMs · ${customGamesCount}` : 'My ROMs' },
   ]
 
-  const TILE = 'clamp(96px, 9.5vw, 120px)'
+  // Shelf height: tile + label + gap + filter row + bottom padding
+  const SHELF_H = TILE + 18 + 16 + 32 + 24  // ≈ 220px
 
   return (
-    <div className="relative w-full h-dvh flex flex-col overflow-hidden select-none">
+    <div className="relative w-full h-dvh flex flex-col select-none">
 
-      {/* ── Full-bleed backdrop ─────────────────────────────── */}
+      {/* ── Hero backdrop ─────────────────────────────────────
+          position:fixed + z-index:0 means it is NEVER subject
+          to parent overflow:hidden or transform clipping.
+          The KB animation can scale freely.
+          A new keyed div fades in on each game change.
+      ─────────────────────────────────────────────────────── */}
       {game && (
-        <div key={game.id} className="absolute inset-0 fade-in">
+        <div key={'bg-' + game.id} className="h-fade" style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+          {/* Image layer — KB animation scales from 1.0 to 1.07 */}
           <div
-            className="absolute inset-0 bg-cover bg-center kb"
-            style={{ backgroundImage: `url('${game.heroUrl || game.coverUrl}')` }}
-          />
-          {/* deep vignette so text reads without needing a backdrop */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#08090e] via-[#08090e]/60 to-[#08090e]/30" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#08090e]/80 via-transparent to-transparent" />
-          {/* theme halo — barely there */}
-          <div
-            className="absolute inset-0 ambient pointer-events-none"
+            className="kb"
             style={{
-              background: `radial-gradient(ellipse 60% 50% at 65% 40%, ${game.themeColor || '#2e8fff'}26 0%, transparent 70%)`,
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `url('${game.heroUrl || game.coverUrl}')`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center top',
+              transformOrigin: 'center center',
+            }}
+          />
+
+          {/* Bottom vignette — primary legibility layer */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, #09090f 28%, rgba(9,9,15,0.75) 55%, rgba(9,9,15,0.3) 75%, rgba(9,9,15,0.1) 100%)',
+            }}
+          />
+
+          {/* Left vignette — keeps text readable */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to right, rgba(9,9,15,0.88) 0%, rgba(9,9,15,0.5) 40%, transparent 75%)',
+            }}
+          />
+
+          {/* Theme halo — subtle color tint in upper-right quadrant */}
+          <div
+            className="breathe"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: `radial-gradient(ellipse 50% 40% at 72% 35%, ${game.themeColor || '#1a6fff'}1a 0%, transparent 70%)`,
+              pointerEvents: 'none',
             }}
           />
         </div>
       )}
 
-      {/* ── Game info — left side, vertically centered ─────── */}
-      {game && (
-        <div
-          key={game.id + '-info'}
-          className="relative z-10 flex-1 flex flex-col justify-center px-6 sm:px-10 lg:px-14 slide-up"
-          style={{ paddingBottom: '200px' }} /* leave room for the ribbon shelf */
-        >
-          <p className="text-[11px] font-medium text-white/35 tracking-widest uppercase mb-3">
-            {game.systemLabel} · {game.year}
-          </p>
-
-          <h1 className="text-[clamp(2rem,5vw,3.75rem)] font-bold text-white leading-[1.0] tracking-tight max-w-xl">
-            {game.title}
-          </h1>
-
-          <p className="mt-3 text-[13px] text-white/40 leading-relaxed max-w-md line-clamp-2">
-            {game.description}
-          </p>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 mt-6">
-            <button
-              onClick={() => { sound.playGameStart(); onPlay(game) }}
-              className="flex items-center gap-2 h-10 pl-5 pr-6 rounded-full bg-white text-[#08090e] font-semibold text-[13px] hover:bg-white/90 active:scale-95 transition-all duration-150 shadow-[0_2px_20px_rgba(255,255,255,0.15)]"
+      {/* ── Game info ─────────────────────────────────────────
+          z-index:10 so it renders above the fixed backdrop.
+          Uses flex-1 to take remaining space above the shelf.
+          paddingBottom reserves exact room for the shelf so
+          info text is vertically centered in the visible area.
+      ─────────────────────────────────────────────────────── */}
+      <div
+        className="relative flex-1 flex flex-col justify-center"
+        style={{ zIndex: 10, paddingBottom: SHELF_H, paddingInline: 'clamp(24px, 6vw, 72px)' }}
+      >
+        {game ? (
+          <>
+            {/* System · year  —  level 3 typography: small caps, low opacity */}
+            <p
+              className="i-up"
+              style={{
+                animationDelay: '0ms',
+                fontSize: '11px',
+                fontWeight: 500,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.32)',
+                marginBottom: '12px',
+              }}
             >
-              <Play className="w-3.5 h-3.5 fill-[#08090e]" strokeWidth={0} />
-              Play
-            </button>
+              {game.systemLabel}&thinsp;&middot;&thinsp;{game.year}
+            </p>
 
-            <button
-              onClick={() => { sound.playSelect(); onToggleFavorite(game) }}
-              className={`flex items-center gap-2 h-10 px-4 rounded-full text-[13px] font-medium transition-all duration-150 ${
-                isFavorite
-                  ? 'bg-white/8 border border-white/12 text-rose-400'
-                  : 'bg-white/6 border border-white/8 text-white/40 hover:text-white/70'
-              }`}
+            {/* Title  —  level 1: large, bold, tight */}
+            <h1
+              className="i-up"
+              style={{
+                animationDelay: '60ms',
+                fontSize: 'clamp(2rem, 5vw, 3.75rem)',
+                fontWeight: 700,
+                lineHeight: 1.0,
+                letterSpacing: '-0.025em',
+                color: 'rgba(255,255,255,0.95)',
+                maxWidth: '18ch',
+                margin: 0,
+              }}
             >
-              <Heart
-                className={`w-3.5 h-3.5 transition-all ${isFavorite ? 'fill-rose-400 scale-110' : ''}`}
-                strokeWidth={isFavorite ? 0 : 1.8}
-              />
-              {isFavorite ? 'Saved' : 'Save'}
-            </button>
+              {game.title}
+            </h1>
 
-            <button
-              onClick={() => { sound.playSelect(); onOpenDetails(game) }}
-              className="flex items-center gap-2 h-10 px-4 rounded-full bg-white/6 border border-white/8 text-[13px] font-medium text-white/40 hover:text-white/70 transition-colors"
+            {/* Description  —  level 2: readable body, muted */}
+            <p
+              className="i-up"
+              style={{
+                animationDelay: '115ms',
+                fontSize: '13px',
+                fontWeight: 400,
+                lineHeight: 1.6,
+                color: 'rgba(255,255,255,0.38)',
+                maxWidth: '48ch',
+                marginTop: '12px',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
             >
-              <Info className="w-3.5 h-3.5" strokeWidth={2} />
-              Details
-            </button>
+              {game.description}
+            </p>
 
-            {game.isCustom && onDeleteCustom && (
+            {/* Actions — 28px below description */}
+            <div
+              className="i-up"
+              style={{
+                animationDelay: '170ms',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginTop: '28px',
+                flexWrap: 'wrap',
+              }}
+            >
               <button
-                onClick={() => { sound.playBack(); if (confirm(`Remove "${game.title}"?`)) onDeleteCustom(game.id) }}
-                className="h-10 w-10 grid place-items-center rounded-full bg-white/6 border border-white/8 text-white/30 hover:text-rose-400/80 transition-colors"
+                className="btn btn-white"
+                onClick={() => { sound.playGameStart(); onPlay(game) }}
               >
-                ✕
+                <Play style={{ width: 13, height: 13, fill: '#09090f', flexShrink: 0 }} strokeWidth={0} />
+                Play
               </button>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* ── Bottom shelf: filter row + ribbon ──────────────── */}
-      <div className="relative z-10 pb-6 px-6 sm:px-10 lg:px-14">
+              <button
+                className={`btn btn-ghost${isFavorite ? ' saved' : ''}`}
+                onClick={() => { sound.playSelect(); onToggleFavorite(game) }}
+              >
+                <Heart
+                  style={{
+                    width: 13, height: 13, flexShrink: 0,
+                    fill: isFavorite ? 'rgba(244,63,94,0.9)' : 'none',
+                    transition: 'fill 0.2s ease',
+                  }}
+                  strokeWidth={isFavorite ? 0 : 1.8}
+                />
+                {isFavorite ? 'Saved' : 'Save'}
+              </button>
 
-        {/* Filter + view toggle row */}
-        <div className="flex items-center justify-between mb-3">
-          {/* Category pills */}
-          <div className="flex items-center gap-0.5 no-scroll overflow-x-auto">
-            {categories.map(({ id, label }) => {
-              const active = currentCategory === id
-              return (
+              <button
+                className="btn btn-ghost"
+                onClick={() => { sound.playSelect(); onOpenDetails(game) }}
+              >
+                <Info style={{ width: 13, height: 13, flexShrink: 0 }} strokeWidth={1.8} />
+                Details
+              </button>
+
+              {game.isCustom && onDeleteCustom && (
                 <button
-                  key={id}
-                  onClick={() => { if (!active) { sound.playCategorySwitch(); onSelectCategory(id) } }}
-                  className={`px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-150 ${
-                    active
-                      ? 'bg-white/12 text-white border border-white/12'
-                      : 'text-white/30 hover:text-white/55 border border-transparent'
-                  }`}
+                  className="btn btn-ghost"
+                  onClick={() => { sound.playBack(); if (confirm(`Remove "${game.title}"?`)) onDeleteCustom(game.id) }}
+                  style={{ color: 'rgba(255,255,255,0.22)', padding: '0 12px' }}
                 >
-                  {label}
+                  <Trash2 style={{ width: 13, height: 13, flexShrink: 0 }} strokeWidth={1.8} />
                 </button>
-              )
-            })}
+              )}
+            </div>
+          </>
+        ) : (
+          <p style={{ color: 'rgba(255,255,255,0.15)', fontSize: '13px' }}>Select a game</p>
+        )}
+      </div>
+
+      {/* ── Bottom shelf ──────────────────────────────────────
+          z-index:10, sits at the bottom of the screen.
+          Filter row above the ribbon track.
+      ─────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          paddingBottom: '24px',
+          paddingInline: 'clamp(24px, 6vw, 72px)',
+        }}
+      >
+        {/* Filter row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px',
+            gap: '8px',
+          }}
+        >
+          {/* Category tabs */}
+          <div className="no-scroll" style={{ display: 'flex', alignItems: 'center', gap: '2px', overflowX: 'auto' }}>
+            {cats.map(({ id, label }) => (
+              <button
+                key={id}
+                className={`cat${currentCategory === id ? ' on' : ''}`}
+                onClick={() => { if (currentCategory !== id) { sound.playCategorySwitch(); onSelectCategory(id) } }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* Right controls */}
-          <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
+          {/* Right: view toggle + upload */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
             <button
+              className="chip chip-pad"
               onClick={() => { sound.playToggle(); onToggleViewMode() }}
-              className="flex items-center gap-1.5 h-7 px-3 rounded-full chip text-[11px] text-white/35 hover:text-white/65 transition-colors"
-              title="Switch view  V"
+              title="V"
             >
-              <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2.2} />
-              <span className="hidden sm:inline">{viewMode === 'tv' ? 'Grid' : 'Showcase'}</span>
+              <LayoutGrid style={{ width: 13, height: 13, flexShrink: 0 }} strokeWidth={2} />
+              <span className="hidden sm:inline" style={{ fontSize: '11px' }}>
+                {viewMode === 'tv' ? 'Grid' : 'Showcase'}
+              </span>
             </button>
             <button
+              className="chip chip-pad"
               onClick={() => { sound.playSelect(); onOpenUpload() }}
-              className="flex items-center gap-1.5 h-7 px-3 rounded-full chip text-[11px] text-white/35 hover:text-white/65 transition-colors"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-              <span className="hidden sm:inline">Upload ROM</span>
+              <Plus style={{ width: 13, height: 13, flexShrink: 0 }} strokeWidth={2.5} />
+              <span className="hidden sm:inline" style={{ fontSize: '11px' }}>Upload</span>
             </button>
           </div>
         </div>
 
-        {/* Ribbon track */}
-        <div className="relative">
-          {/* Scroll arrows */}
-          <button
-            onClick={() => scrollTrack(-280)}
-            className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-7 h-7 hidden sm:grid place-items-center rounded-full bg-black/60 border border-white/8 text-white/50 hover:text-white transition-colors"
-            style={{ marginTop: '-12px' }} /* offset for label below */
-          >
-            <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2.5} />
-          </button>
-          <button
-            onClick={() => scrollTrack(280)}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-7 h-7 hidden sm:grid place-items-center rounded-full bg-black/60 border border-white/8 text-white/50 hover:text-white transition-colors"
-            style={{ marginTop: '-12px' }}
-          >
-            <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />
-          </button>
+        {/* Ribbon — arrows live outside the track, track has matching padding */}
+        <div style={{ position: 'relative' }}>
 
+          {/* Left arrow */}
+          {canScrollLeft && (
+            <button
+              className="arrow hidden sm:grid"
+              onClick={() => scrollTrack(-(TILE + GAP) * 4)}
+              style={{ left: 0, top: TILE / 2 - 14, transform: 'none' }}
+              aria-label="Scroll left"
+            >
+              <ChevronLeft style={{ width: 14, height: 14 }} strokeWidth={2.5} />
+            </button>
+          )}
+
+          {/* Right arrow */}
+          {canScrollRight && (
+            <button
+              className="arrow hidden sm:grid"
+              onClick={() => scrollTrack((TILE + GAP) * 4)}
+              style={{ right: 0, top: TILE / 2 - 14, transform: 'none' }}
+              aria-label="Scroll right"
+            >
+              <ChevronRight style={{ width: 14, height: 14 }} strokeWidth={2.5} />
+            </button>
+          )}
+
+          {/* Track — arrows live in the 34px padding zones */}
           <div
             ref={trackRef}
-            className="flex gap-3 overflow-x-auto no-scroll py-2"
+            className="no-scroll"
+            style={{
+              display: 'flex',
+              gap: GAP,
+              overflowX: 'auto',
+              paddingLeft:  canScrollLeft  ? 34 : 0,
+              paddingRight: canScrollRight ? 34 : 0,
+              paddingTop: 4,
+              paddingBottom: 4,
+              transition: 'padding 0.18s ease',
+            }}
           >
-            {games.map(game => {
-              const isSel = game.id === selectedGameId
-              const isHov = hoveredId === game.id
+            {games.map((g, i) => {
+              const isSel = g.id === selectedGameId
+              const isHov = hoveredId === g.id
 
               return (
                 <div
-                  key={game.id}
-                  ref={el => { if (el) tileRefs.current.set(game.id, el); else tileRefs.current.delete(game.id) }}
-                  onClick={() => { sound.playHover(); onSelectGame(game) }}
-                  onMouseEnter={() => setHoveredId(game.id)}
+                  key={g.id}
+                  ref={el => { if (el) tileRefs.current.set(g.id, el); else tileRefs.current.delete(g.id) }}
+                  className="tile tile-in"
+                  style={{ width: TILE, animationDelay: `${Math.min(i * 28, 220)}ms` }}
+                  onClick={() => { sound.playHover(); onSelectGame(g) }}
+                  onMouseEnter={() => setHoveredId(g.id)}
                   onMouseLeave={() => setHoveredId(null)}
-                  className="tile"
-                  style={{ width: TILE }}
                 >
-                  {/* Glow bloom — layout-inert absolute */}
+                  {/* Glow — z-index:-1 paints behind tile, outside overflow */}
                   <div
-                    className={`tile-glow ${isSel ? 'on' : ''}`}
-                    style={{ backgroundColor: game.themeColor || '#2e8fff' }}
+                    className={`tile-glow${isSel ? ' on' : ''}`}
+                    style={{ backgroundColor: g.themeColor || '#1a6fff' }}
                   />
 
-                  {/* Card */}
+                  {/* Card image */}
                   <div
-                    className={`tile-inner ${isSel ? 'sel' : ''}`}
+                    className={`tile-img${isSel ? ' sel' : ''}`}
                     style={{ width: TILE, height: TILE }}
                   >
-                    <img src={game.coverUrl} alt={game.title} loading="lazy" />
+                    <img src={g.coverUrl} alt={g.title} loading="lazy" />
 
-                    {/* Bottom fade */}
-                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                    {/* Bottom fade for label readability */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 'auto 0 0 0',
+                        height: '45%',
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.5), transparent)',
+                        pointerEvents: 'none',
+                      }}
+                    />
 
-                    {/* Saved dot */}
-                    {favorites.includes(game.id) && (
-                      <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 grid place-items-center rounded-full bg-black/50 backdrop-blur-sm">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                      </div>
+                    {/* Saved indicator */}
+                    {favorites.includes(g.id) && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 7, right: 7,
+                          width: 7, height: 7,
+                          borderRadius: '50%',
+                          background: 'rgba(244,63,94,0.9)',
+                          boxShadow: '0 0 0 1.5px rgba(9,9,15,0.9)',
+                        }}
+                      />
                     )}
                   </div>
 
                   {/* Label */}
                   <p
-                    className="mt-1.5 text-[10px] font-medium text-center truncate px-0.5 transition-colors duration-200"
-                    style={{ color: isSel || isHov ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)' }}
+                    style={{
+                      marginTop: 8,
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      textAlign: 'center',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      paddingInline: 2,
+                      lineHeight: 1.3,
+                      color: isSel ? 'rgba(255,255,255,0.85)' : isHov ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.2)',
+                      transition: 'color 0.22s ease',
+                    }}
                   >
-                    {game.title}
+                    {g.title}
                   </p>
                 </div>
               )
             })}
 
-            {/* Add ROM tile */}
+            {/* Add ROM */}
             <div
+              className="tile"
+              style={{ width: TILE }}
               onClick={() => { sound.playSelect(); onOpenUpload() }}
               onMouseEnter={() => setHoveredId('__add')}
               onMouseLeave={() => setHoveredId(null)}
-              className="tile flex-shrink-0"
-              style={{ width: TILE }}
             >
               <div
-                className="tile-inner glass flex items-center justify-center"
-                style={{ width: TILE, height: TILE, border: '1px dashed rgba(255,255,255,0.1)' }}
+                className="tile-img"
+                style={{
+                  width: TILE, height: TILE,
+                  border: '1px dashed rgba(255,255,255,0.1)',
+                  opacity: hoveredId === '__add' ? 0.65 : 0.28,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'opacity 0.2s ease',
+                }}
               >
-                <Plus
-                  className="w-5 h-5 transition-colors duration-200"
-                  style={{ color: hoveredId === '__add' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)' }}
-                  strokeWidth={1.5}
-                />
+                <Plus style={{ width: 18, height: 18, color: 'rgba(255,255,255,0.5)' }} strokeWidth={1.5} />
               </div>
             </div>
           </div>

@@ -2,173 +2,254 @@
 
 @layer base {
   :root {
-    --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --sidebar: 220px;
+    --ease-out:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --ease-snap: cubic-bezier(0.16, 1, 0.30, 1);
   }
 
-  * {
-    box-sizing: border-box;
-    user-select: none;
-    -webkit-user-drag: none;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+  * { box-sizing: border-box; user-select: none; -webkit-user-drag: none; -webkit-font-smoothing: antialiased; }
 
   body {
-    margin: 0;
-    padding: 0;
-    background: #08090e;
-    color: #e8edf2;
+    margin: 0; padding: 0;
+    background: #0f0f0f;
+    color: #e8e8e8;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-    overflow: hidden;       /* full-bleed, no page scroll in showcase mode */
+    overflow: hidden;
     height: 100dvh;
-    letter-spacing: -0.013em;
+    letter-spacing: -0.012em;
   }
 }
 
 /* ── Scrollbars ─────────────────────────────────────────── */
-::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
-.no-scroll { scrollbar-width: none; }
-.no-scroll::-webkit-scrollbar { display: none; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 9999px; }
+.noscroll { scrollbar-width: none; }
+.noscroll::-webkit-scrollbar { display: none; }
 
-/* ── Frosted glass ──────────────────────────────────────── */
-.glass {
-  background: rgba(12, 14, 22, 0.55);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid rgba(255,255,255,0.07);
+/* ── Layout shell ───────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
 }
 
-/* top bar pill buttons */
-.chip {
-  background: rgba(255,255,255,0.06);
+/* ── Sidebar ─────────────────────────────────────────────
+   Fixed left column — no border, dark surface, nav items.
+───────────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #141414;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0 24px;
+}
+.sidebar::-webkit-scrollbar { display: none; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 20px;
+  border-radius: 8px;
+  margin: 1px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s var(--ease-out);
+}
+.nav-item:hover  { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); }
+.nav-item:active { transform: scale(0.97); }
+.nav-item.active { background: rgba(255,255,255,0.1); color: #fff; }
+
+.nav-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.22);
+  padding: 20px 20px 6px;
+}
+
+/* ── Main content area ──────────────────────────────────── */
+.main {
+  flex: 1;
+  min-width: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #0f0f0f;
+  padding-bottom: 40px;
+}
+.main::-webkit-scrollbar { display: none; }
+
+/* ── Section headers ────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+  padding: 24px 24px 14px;
+  letter-spacing: -0.02em;
+}
+.section-header .more {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.3);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  margin-left: 2px;
+}
+.section-header .more:hover { color: rgba(255,255,255,0.7); }
+
+/* ── Featured hero card ─────────────────────────────────── */
+.hero-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #1a1a1a;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.hero-card:hover .hero-card-overlay { opacity: 1; }
+
+/* ── Small card ─────────────────────────────────────────── */
+.small-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1a1a1a;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.22s var(--ease-out), box-shadow 0.22s ease;
+}
+.small-card:hover { transform: scale(1.04); box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+.small-card:active { transform: scale(0.98); }
+
+/* ── Shelf (horizontal scroll row) ─────────────────────── */
+.shelf {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 0 24px 4px;
+}
+.shelf::-webkit-scrollbar { display: none; }
+
+/* shelf card */
+.shelf-card {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1a1a1a;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-out), opacity 0.2s ease;
+}
+.shelf-card:hover { transform: translateY(-3px) scale(1.03); }
+.shelf-card:hover .shelf-card-info { opacity: 1; }
+.shelf-card:active { transform: scale(0.97); }
+
+.shelf-card-info {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 28px 10px 9px;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 36px; padding: 0 18px 0 14px;
+  border-radius: 6px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600;
+  transition: background 0.15s ease, opacity 0.13s ease, transform 0.12s var(--ease-out);
+}
+.btn:active { transform: scale(0.95); opacity: 0.82; }
+.btn-white  { background: #fff; color: #0f0f0f; }
+.btn-white:hover { background: rgba(255,255,255,0.88); }
+.btn-dim    { background: rgba(255,255,255,0.15); color: #fff; }
+.btn-dim:hover { background: rgba(255,255,255,0.22); }
+
+/* ── Search input ───────────────────────────────────────── */
+.search-input {
+  width: 100%;
+  height: 34px;
+  background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  border-radius: 8px;
+  padding: 0 12px 0 34px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  outline: none;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
-.chip:hover {
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.14);
+.search-input::placeholder { color: rgba(255,255,255,0.28); }
+.search-input:focus { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+
+/* ── Top bar ────────────────────────────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 24px;
+  background: linear-gradient(to bottom, rgba(15,15,15,0.97) 70%, transparent);
 }
 
-/* ── Ribbon cards ───────────────────────────────────────────
-   The wrapper (.tile) has a FIXED layout footprint using
-   contain:layout — transforms on the inner img never cause
-   the scroll container to reflow or jitter.
-──────────────────────────────────────────────────────────── */
-.tile {
-  flex-shrink: 0;
-  position: relative;
-  cursor: pointer;
-  /* contain layout so inner state never causes scroll reflow */
-  contain: layout style;
-  transition: transform 0.22s ease;
-}
-.tile:hover {
-  transform: translateY(-2px);
-}
-
-.tile-inner {
-  position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  background: #0c0e16;
-  /* no border on unselected — cleaner */
-  border: 1px solid transparent;
-  transition:
-    opacity      0.3s ease,
-    border-color 0.3s ease,
-    box-shadow   0.3s ease;
-  /* NO transform — no scale, no lift. focus = brightness only. */
-}
-
-/* selected — full brightness, thin white ring, nothing else */
-.tile-inner.sel {
-  opacity: 1;
-  border-color: rgba(255,255,255,0.55);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.55);
-}
-
-/* non-selected — dimmed */
-.tile-inner:not(.sel) {
-  opacity: 0.45;
-}
-
-/* hover on non-selected — restore brightness, tiny lift via wrapper */
-.tile:hover .tile-inner:not(.sel) {
-  opacity: 0.82;
-}
-.tile:hover {
-  transform: translateY(-2px);
-  transition: transform 0.2s ease;
-}
-
-/* image inside tile */
-.tile-inner img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* ── Theme-colored spotlight behind selected tile ───────── */
-.tile-glow {
-  position: absolute;
-  inset: -40% -25% -50% -25%;
-  border-radius: 50%;
-  filter: blur(32px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-  z-index: 0;
-}
-.tile-glow.on { opacity: 0.35; }
-
-/* ── CRT shader ─────────────────────────────────────────── */
+/* ── CRT ────────────────────────────────────────────────── */
 .crt {
   background:
-    linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.28) 50%),
-    linear-gradient(90deg, rgba(255,0,0,0.015), rgba(0,255,0,0.008), rgba(0,0,255,0.015));
+    linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.22) 50%),
+    linear-gradient(90deg, rgba(255,0,0,0.01), rgba(0,255,0,0.005), rgba(0,0,255,0.01));
   background-size: 100% 3px, 6px 100%;
-  pointer-events: none;
-  mix-blend-mode: multiply;
+  pointer-events: none; mix-blend-mode: multiply;
 }
 
 /* ── Animations ─────────────────────────────────────────── */
-@keyframes kenBurns {
-  from { transform: scale(1.04); }
-  to   { transform: scale(1.12) translate(-1%, -1%); }
-}
-.kb { animation: kenBurns 20s ease-out forwards; }
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-.fade-in { animation: fadeIn 0.6s ease both; }
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.slide-up { animation: slideUp 0.45s var(--ease-out) both; }
+.fade-up { animation: fadeUp 0.4s var(--ease-out) both; }
 
-@keyframes ambientPulse {
-  0%,100% { opacity: 0.14; transform: scale(1); }
-  50%      { opacity: 0.22; transform: scale(1.06); }
+@keyframes fadeIn {
+  from { opacity: 0; } to { opacity: 1; }
 }
-.ambient { animation: ambientPulse 12s ease-in-out infinite; }
+.fade-in { animation: fadeIn 0.5s ease both; }
 
-@keyframes trophyDrop {
-  0%  { transform: translateY(-36px) scale(0.93); opacity: 0; }
-  14% { transform: translateY(0) scale(1.01);     opacity: 1; }
-  88% { transform: translateY(0);                 opacity: 1; }
-  100%{ transform: translateY(-36px) scale(0.93); opacity: 0; }
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
 }
-.animate-trophy-toast { animation: trophyDrop 4s ease forwards; }
+.skeleton {
+  background: linear-gradient(90deg, #1a1a1a 25%, #222 50%, #1a1a1a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes tDrop {
+  0%  { transform: translateY(-28px); opacity: 0; }
+  14% { transform: translateY(0);     opacity: 1; }
+  88% { transform: translateY(0);     opacity: 1; }
+  100%{ transform: translateY(-28px); opacity: 0; }
+}
+.animate-trophy-toast { animation: tDrop 4s var(--ease-snap) forwards; }
 
 @media (prefers-reduced-motion: reduce) {
-  .kb, .fade-in, .slide-up, .ambient { animation: none !important; }
+  .fade-up, .fade-in { animation: none !important; }
 }

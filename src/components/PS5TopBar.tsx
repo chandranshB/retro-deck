@@ -26,7 +26,7 @@ export const PS5TopBar: React.FC<PS5TopBarProps> = ({
   onOpenSearch,
 }) => {
   const [time, setTime] = useState('')
-  const [fs, setFs] = useState(false)
+  const [fs,   setFs]   = useState(false)
 
   useEffect(() => {
     const tick = () => setTime(
@@ -49,77 +49,119 @@ export const PS5TopBar: React.FC<PS5TopBarProps> = ({
   }
 
   return (
-    <header className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-6 sm:px-10 lg:px-14 pt-5 select-none">
-      {/* Left — wordmark */}
-      <div className="flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-[8px] bg-gradient-to-br from-[#0070d1] to-[#38b6ff] grid place-items-center">
-          <span className="text-[10px] font-black text-white tracking-tighter leading-none">PS</span>
+    <header
+      style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        zIndex: 20,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '18px clamp(24px, 6vw, 72px) 0',
+      }}
+    >
+      {/* Wordmark */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div
+          style={{
+            width: 28, height: 28,
+            borderRadius: 8,
+            background: 'linear-gradient(135deg, #0070d1, #38b6ff)',
+            display: 'grid', placeItems: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '-0.05em', lineHeight: 1 }}>PS</span>
         </div>
-        <span className="text-[13px] font-semibold text-white/75 tracking-tight hidden sm:block">
+        <span
+          className="hidden sm:block"
+          style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '-0.01em' }}
+        >
           RetroStation
         </span>
       </div>
 
-      {/* Right — controls */}
-      <div className="flex items-center gap-1.5">
-        {/* Search — the wider pill the user likes */}
+      {/* Controls — all the same 32px height */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+
+        {/* Search */}
         <button
+          className="chip chip-pad"
           onClick={() => { sound.playSearch(); onOpenSearch() }}
-          className="flex items-center gap-2 h-8 pl-3 pr-3.5 rounded-full chip text-[11px] font-medium text-white/40 hover:text-white/80 transition-colors"
           title="Search  /"
+          style={{ paddingLeft: 12, paddingRight: 14 }}
         >
-          <Search className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.3} />
+          <Search style={{ width: 13, height: 13, flexShrink: 0 }} strokeWidth={2.3} />
           <span className="hidden sm:inline">Search</span>
         </button>
 
         {/* Mute */}
         <button
+          className="chip chip-sq"
           onClick={() => { sound.playSelect(); onToggleMute() }}
-          className="w-8 h-8 grid place-items-center rounded-full chip text-white/40 hover:text-white/80 transition-colors"
           title={isMuted ? 'Unmute' : 'Mute'}
         >
           {isMuted
-            ? <VolumeX className="w-3.5 h-3.5 text-rose-400/80" strokeWidth={2.3} />
-            : <Volume2  className="w-3.5 h-3.5"                  strokeWidth={2.3} />
+            ? <VolumeX style={{ width: 13, height: 13, color: 'rgba(244,63,94,0.75)' }} strokeWidth={2.2} />
+            : <Volume2  style={{ width: 13, height: 13 }}                               strokeWidth={2.2} />
           }
         </button>
 
         {/* Fullscreen */}
         <button
+          className="chip chip-sq"
           onClick={toggleFs}
-          className="w-8 h-8 grid place-items-center rounded-full chip text-white/40 hover:text-white/80 transition-colors"
           title="Fullscreen"
         >
           {fs
-            ? <Minimize2 className="w-3.5 h-3.5" strokeWidth={2.3} />
-            : <Maximize2 className="w-3.5 h-3.5" strokeWidth={2.3} />
+            ? <Minimize2 style={{ width: 13, height: 13 }} strokeWidth={2.2} />
+            : <Maximize2 style={{ width: 13, height: 13 }} strokeWidth={2.2} />
           }
         </button>
 
-        {/* Gamepad status — indicator only */}
+        {/* Controller — status indicator, not interactive */}
         <div
-          className="w-8 h-8 grid place-items-center rounded-full chip"
+          className="chip chip-sq"
           title={gamepadConnected ? 'Controller connected' : 'Keyboard mode'}
+          style={{ cursor: 'default' }}
         >
           <Gamepad2
-            className={`w-3.5 h-3.5 transition-colors ${gamepadConnected ? 'text-emerald-400' : 'text-white/20'}`}
-            strokeWidth={2.3}
+            style={{
+              width: 13, height: 13,
+              color: gamepadConnected ? 'rgba(52,211,153,0.9)' : 'rgba(255,255,255,0.18)',
+              transition: 'color 0.3s ease',
+            }}
+            strokeWidth={2.2}
           />
         </div>
 
-        {/* Profile / Settings — one button */}
+        {/* Profile + settings — single pill */}
         <button
+          className="chip"
           onClick={() => { sound.playSelect(); onOpenSettings() }}
-          className="flex items-center gap-2 h-8 pl-1 pr-3 ml-1 rounded-full chip"
           title="Settings"
+          style={{ padding: '0 12px 0 4px', gap: 8, marginLeft: 4 }}
         >
-          <img src={userProfile.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
-          <span className="text-[11px] font-medium text-white/55 hidden sm:block">{userProfile.gamerTag}</span>
-          <Settings className="w-3 h-3 text-white/25 hidden sm:block" strokeWidth={2.3} />
+          <img
+            src={userProfile.avatar}
+            alt=""
+            style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+          />
+          <span
+            className="hidden sm:block"
+            style={{ fontSize: '11px', fontWeight: 500, color: 'rgba(255,255,255,0.5)' }}
+          >
+            {userProfile.gamerTag}
+          </span>
+          <Settings style={{ width: 11, height: 11, color: 'rgba(255,255,255,0.2)' }} className="hidden sm:block" strokeWidth={2.2} />
         </button>
 
         {/* Clock */}
-        <span className="text-[11px] font-mono text-white/25 pl-1 hidden md:block tabular-nums">{time}</span>
+        <span
+          className="hidden md:block"
+          style={{ fontSize: '11px', fontFamily: 'ui-monospace, monospace', color: 'rgba(255,255,255,0.2)', paddingLeft: 4, fontVariantNumeric: 'tabular-nums' }}
+        >
+          {time}
+        </span>
       </div>
     </header>
   )
